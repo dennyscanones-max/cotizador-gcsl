@@ -217,7 +217,15 @@ table.lct tr.grand small{font-weight:600;color:var(--slate2);font-size:10px}
 .edoc p{font-size:13px;margin-top:8px}
 
 @media print{
-  @page{size:A4;margin:0}
+  @page{
+    size:A4;
+    margin:0mm;
+    /* Safari/WebKit: eliminar encabezados y pies del navegador */
+    -webkit-margin-before:0mm;
+    -webkit-margin-after:0mm;
+    -webkit-margin-start:0mm;
+    -webkit-margin-end:0mm;
+  }
   html,body{background:#fff}
   .topbar,.tabbar,.panel,.doc-actions,.float-btn,#gcsl-toast{display:none!important}
   .body-offset{padding-top:0}
@@ -723,19 +731,61 @@ let _resetArmed=false,_resetTimer=null;
 function gcslPrint(){
   var b=document.getElementById('btnPrint');
   b.style.opacity='0.6';setTimeout(function(){b.style.opacity='';},300);
-  var isSafariIOS=/iPad|iPhone|iPod/.test(navigator.userAgent)&&!window.MSStream;
-  var isChromeIOS=/CriOS/i.test(navigator.userAgent);
-  if(isChromeIOS){
-    showToast('En Chrome iOS: toca Compartir ⬆ → "Imprimir" o "Guardar en Archivos"',4500);return;
-  }
-  try{
-    window.print();
-    if(isSafariIOS){
-      setTimeout(function(){
-        showToast('Tip: en el diálogo de impresión activa "Sin cabeceras y pies de página" para quitar la URL y fecha',5000);
-      },1000);
-    }
-  }catch(e){showToast('Usa el menú del navegador → Imprimir (Cmd+P / Ctrl+P)',3000);}
+  var docEl=document.getElementById('doc');
+  if(!docEl||docEl.querySelector('.edoc')){showToast('Genera primero una cotización',2500);return;}
+  var qn=gv('qnum')||'GCSL';
+  var css=`
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,Roboto,sans-serif;color:#0E1B2A;background:#fff;font-size:10.5px;line-height:1.45;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    @page{size:A4;margin:0}
+    .doc{padding:12mm 13mm}
+    .Lhd{display:flex;justify-content:space-between;align-items:flex-start;gap:20px;border-bottom:2px solid #0A2540;padding-bottom:14px;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    .Lhd img{max-height:52px;max-width:200px;width:auto}
+    .Lco{text-align:right;font-size:9.5px;color:#5B6B7C;line-height:1.55}
+    .Lco b{color:#0A2540;font-size:11.5px;display:block;letter-spacing:.01em}
+    .Lmt{display:flex;justify-content:space-between;margin:12px 0 3px;font-size:10px;flex-wrap:wrap;gap:6px}
+    .Lmt .qn{font-weight:800;color:#0A2540;font-size:12px}
+    .Lmt .r{text-align:right;color:#5B6B7C}
+    .Lmt .r b{color:#0E1B2A}
+    .Lto{margin:11px 0 2px}
+    .Lto .a{font-size:12px;font-weight:700}
+    .Lto .b{font-size:10.5px;color:#5B6B7C;font-weight:600}
+    .Lp{font-size:10.5px;line-height:1.6;margin:8px 0}
+    .Lsp{font-size:10.5px;line-height:1.7;margin:10px 0}
+    .Lsp b{display:inline-block;min-width:90px;color:#0A2540;font-weight:700}
+    .Lst{font-size:9.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#C95A18;margin:14px 0 5px;border-bottom:1px solid #E3E8EE;padding-bottom:4px;break-after:avoid}
+    table.lct{width:100%;border-collapse:collapse}
+    table.lct th{font-size:9px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:#fff;background:#0A2540;padding:7px 9px;text-align:left;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    table.lct th.r,table.lct td.r{text-align:right}
+    table.lct td{padding:7px 9px;border-bottom:1px solid #EDF1F5;font-size:10px}
+    table.lct td b{font-weight:600}
+    table.lct td small{color:#8A98A6;display:block;font-size:9px}
+    table.lct tr.sub td{border-bottom:none;border-top:1.5px solid #E3E8EE;font-weight:700;color:#0A2540;font-size:11px}
+    table.lct tr.grand td{border-bottom:none;border-top:2px solid #0A2540;font-weight:800;font-size:12.5px;color:#0A2540;padding-top:9px}
+    .Lal{font-size:9.5px;padding:6px 9px;border-radius:6px;border-left:3px solid;margin:4px 0}
+    .Lal.warn{background:#FBF3E0;border-color:#B8860B;color:#7a5b08}
+    .Lal.bad{background:#FBE9E7;border-color:#C0392B;color:#8a2c20}
+    .Lal.info{background:#E9F0F8;border-color:#0A2540;color:#0A2540}
+    .Lno{margin-top:12px}
+    .Lno .t{font-size:9px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#8A98A6;margin-bottom:4px}
+    .Lno ul{margin:0;padding-left:13px}
+    .Lno li{font-size:9.5px;color:#5B6B7C;line-height:1.55;margin-bottom:2px}
+    .Lcl{font-size:10.5px;line-height:1.6;margin-top:12px}
+    .Lsg{margin-top:14px;font-size:10.5px}
+    .Lsg b{display:block;font-size:11.5px;color:#0A2540}
+    .Lsg span{color:#5B6B7C}
+    .bdg{display:flex;gap:5px;flex-wrap:wrap;margin-top:8px}
+    .bdg span{font-size:9.5px;font-weight:600;padding:2px 7px;border-radius:5px}
+    .bdg .warn{background:#FBF3E0;color:#B8860B}
+    .bdg .bad{background:#FBE9E7;color:#C0392B}
+    .bdg .info{background:#E9F0F8;color:#0A2540}
+    .page2{break-before:page;padding-top:12mm}
+    .sub-multi{font-size:10px}
+  `;
+  var w=window.open('','_blank');
+  if(!w){showToast('Permite ventanas emergentes para esta página y vuelve a intentar',4000);return;}
+  w.document.write('<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Cotizacion '+qn+' - GCSL</title><style>'+css+'</style></head><body><div class="doc">'+docEl.innerHTML+'</div><script>window.onload=function(){setTimeout(function(){window.print();},400);};<\/script></body></html>');
+  w.document.close();
 }
 function gcslReset(){
   var b=document.getElementById('btnReset');
